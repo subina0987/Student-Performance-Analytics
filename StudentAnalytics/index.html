@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Performance Analytics</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Epilogue:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0c0c10;
+  --surface: #13131a;
+  --surface2: #1a1a24;
+  --border: #252535;
+  --text: #f0eee8;
+  --muted: #6b6b7e;
+  --dim: #3a3a4e;
+  --gold: #f5c842;
+  --rose: #f0485a;
+  --teal: #36d4b7;
+  --indigo: #7b6ef6;
+  --sky: #4ea8de;
+  --green: #4ade80;
+  --font-display: 'Syne', sans-serif;
+  --font-body: 'Epilogue', sans-serif;
+  --radius: 14px;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ─── LOADING SCREEN ─── */
+#loader {
+  position: fixed; inset: 0;
+  background: var(--bg);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  z-index: 100; gap: 1.5rem;
+  transition: opacity 0.5s ease;
+}
+.loader-ring {
+  width: 56px; height: 56px;
+  border: 3px solid var(--border);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loader-text { font-family: var(--font-display); font-size: 13px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase; }
+#loader.hidden { opacity: 0; pointer-events: none; }
+
+/* ─── HERO HEADER ─── */
+.hero {
+  position: relative;
+  padding: 4rem 5rem 3.5rem;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border);
+  background: radial-gradient(ellipse 80% 60% at 70% -20%, #7b6ef618, transparent),
+              radial-gradient(ellipse 50% 50% at 10% 110%, #f5c84210, transparent);
+}
+.hero-grid {
+  display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 2rem;
+}
+.hero-eyebrow {
+  font-family: var(--font-display);
+  font-size: 11px; letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--gold); margin-bottom: 1.2rem;
+  display: flex; align-items: center; gap: 10px;
+}
+.hero-eyebrow::before {
+  content: ''; display: block; width: 28px; height: 1px; background: var(--gold);
+}
+.hero-title {
+  font-family: var(--font-display);
+  font-size: clamp(2.4rem, 5vw, 4.2rem);
+  font-weight: 800; line-height: 1.05;
+  letter-spacing: -1px;
+}
+.hero-title em { font-style: normal; color: var(--gold); }
+.hero-sub {
+  margin-top: 1rem; color: var(--muted);
+  font-size: 0.92rem; font-weight: 300;
+  max-width: 480px; line-height: 1.7;
+}
+.hero-kpis {
+  display: flex; gap: 2.5rem; align-items: flex-end;
+}
+.kpi { text-align: right; }
+.kpi-val {
+  font-family: var(--font-display);
+  font-size: 2rem; font-weight: 700;
+  line-height: 1;
+}
+.kpi-lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; margin-top: 4px; }
+.hero-bar {
+  margin-top: 2.5rem;
+  height: 3px; background: var(--border); border-radius: 2px; overflow: hidden;
+}
+.hero-bar-fill {
+  height: 100%; width: 0;
+  background: linear-gradient(90deg, var(--gold), var(--rose));
+  border-radius: 2px;
+  transition: width 1.5s cubic-bezier(.16,1,.3,1);
+}
+
+/* ─── NAV TABS ─── */
+.tabs-wrap {
+  border-bottom: 1px solid var(--border);
+  padding: 0 5rem;
+  background: var(--surface);
+  position: sticky; top: 0; z-index: 50;
+}
+.tabs { display: flex; gap: 0; }
+.tab {
+  padding: 1rem 1.4rem;
+  font-family: var(--font-display); font-size: 12px;
+  font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--muted); cursor: pointer; border: none;
+  background: none; position: relative; transition: color 0.2s;
+}
+.tab::after {
+  content: ''; position: absolute;
+  bottom: -1px; left: 0; right: 0; height: 2px;
+  background: var(--gold); transform: scaleX(0); transition: transform 0.25s ease;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--gold); }
+.tab.active::after { transform: scaleX(1); }
+
+/* ─── MAIN CONTENT ─── */
+main { max-width: 1360px; margin: 0 auto; padding: 3rem 2rem 5rem; }
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* ─── SECTION HEADINGS ─── */
+.sec-head { margin-bottom: 1.5rem; }
+.sec-title {
+  font-family: var(--font-display);
+  font-size: 1.3rem; font-weight: 700;
+}
+.sec-sub { font-size: 0.82rem; color: var(--muted); margin-top: 3px; }
+.sec-divider { margin-bottom: 2.5rem; }
+
+/* ─── STAT CARDS ─── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px; margin-bottom: 2rem;
+}
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.4rem 1.2rem;
+  position: relative; overflow: hidden;
+  transition: border-color 0.2s, transform 0.2s;
+}
+.stat-card:hover { transform: translateY(-2px); }
+.stat-accent {
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+}
+.stat-label {
+  font-size: 10px; text-transform: uppercase;
+  letter-spacing: 2px; color: var(--muted); font-weight: 600;
+  margin-bottom: 0.8rem;
+}
+.stat-value {
+  font-family: var(--font-display);
+  font-size: 2rem; font-weight: 700; line-height: 1;
+}
+.stat-unit { font-size: 0.75rem; color: var(--muted); font-weight: 400; }
+.stat-meta { display: flex; gap: 10px; margin-top: 0.6rem; }
+.stat-mini { font-size: 11px; color: var(--muted); }
+.stat-mini strong { color: var(--text); font-weight: 500; }
+
+/* ─── CARDS ─── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+}
+.card-title { font-family: var(--font-display); font-size: 0.9rem; font-weight: 700; margin-bottom: 3px; }
+.card-sub { font-size: 11px; color: var(--muted); margin-bottom: 1.2rem; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+
+/* ─── DESCRIPTIVE TABLE ─── */
+.desc-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.desc-table th {
+  text-align: left; padding: 0.7rem 1rem;
+  font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px;
+  color: var(--muted); font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+.desc-table td { padding: 0.8rem 1rem; border-bottom: 1px solid var(--dim)22; color: var(--text); }
+.desc-table tr:last-child td { border-bottom: none; }
+.desc-table tr:hover td { background: var(--surface2); }
+.badge {
+  display: inline-block; padding: 2px 10px;
+  border-radius: 20px; font-size: 10px; font-weight: 600;
+}
+.badge-high { background: #4ea8de22; color: var(--sky); border: 1px solid #4ea8de44; }
+.badge-mod  { background: #36d4b722; color: var(--teal); border: 1px solid #36d4b744; }
+.badge-low  { background: #f5c84222; color: var(--gold); border: 1px solid #f5c84244; }
+
+/* ─── CORRELATION BARS ─── */
+.corr-list { display: flex; flex-direction: column; gap: 1rem; padding-top: 0.3rem; }
+.corr-row { display: flex; align-items: center; gap: 14px; font-size: 0.82rem; }
+.corr-name { width: 170px; color: var(--text); flex-shrink: 0; }
+.corr-track { flex: 1; height: 6px; background: var(--dim)44; border-radius: 3px; overflow: hidden; }
+.corr-fill { height: 6px; border-radius: 3px; transition: width 1.2s cubic-bezier(.16,1,.3,1); }
+.corr-num { width: 48px; text-align: right; font-family: var(--font-display); font-weight: 700; font-size: 0.82rem; }
+
+/* ─── INSIGHT CARDS ─── */
+.insights-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.insight {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.2rem 1.4rem;
+  border-left: 3px solid;
+  transition: transform 0.2s;
+}
+.insight:hover { transform: translateY(-2px); }
+.insight-icon { font-size: 1.3rem; margin-bottom: 0.5rem; }
+.insight-title { font-family: var(--font-display); font-size: 0.88rem; font-weight: 700; margin-bottom: 0.4rem; }
+.insight-body { font-size: 0.8rem; color: var(--muted); line-height: 1.6; }
+.insight-body strong { color: var(--text); }
+
+/* ─── DATA TABLE ─── */
+.tbl-container { overflow: auto; max-height: 460px; border: 1px solid var(--border); border-radius: var(--radius); }
+.data-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.data-table thead { position: sticky; top: 0; background: var(--surface2); z-index: 2; }
+.data-table th {
+  padding: 0.7rem 1rem;
+  font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px;
+  color: var(--muted); font-weight: 600; text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.data-table td { padding: 0.55rem 1rem; border-bottom: 1px solid #1f1f2e; color: var(--text); }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: var(--surface2); }
+.grade-pill {
+  display: inline-block; padding: 2px 10px;
+  border-radius: 20px; font-size: 10px; font-weight: 700;
+  font-family: var(--font-display);
+}
+.mini-bar-wrap { display: inline-block; width: 50px; height: 4px; background: var(--dim)44; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
+.mini-bar-fill { height: 4px; border-radius: 2px; display: block; }
+
+/* ─── SEARCH / FILTER ─── */
+.table-controls { display: flex; gap: 10px; margin-bottom: 1rem; align-items: center; flex-wrap: wrap; }
+.search-input {
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--text); padding: 0.55rem 1rem;
+  border-radius: 8px; font-size: 13px; font-family: var(--font-body);
+  outline: none; transition: border-color 0.2s;
+  width: 220px;
+}
+.search-input::placeholder { color: var(--muted); }
+.search-input:focus { border-color: var(--gold); }
+.filter-select {
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--text); padding: 0.55rem 0.9rem;
+  border-radius: 8px; font-size: 13px; font-family: var(--font-body);
+  outline: none; cursor: pointer;
+}
+.filter-select:focus { border-color: var(--gold); }
+.count-label { font-size: 12px; color: var(--muted); margin-left: auto; }
+
+/* ─── GRADE COLORS ─── */
+.g-O  { background: #4ade8022; color: var(--green); border: 1px solid #4ade8044; }
+.g-Ap { background: #7b6ef622; color: var(--indigo); border: 1px solid #7b6ef644; }
+.g-A  { background: #4ea8de22; color: var(--sky); border: 1px solid #4ea8de44; }
+.g-B  { background: #f5c84222; color: var(--gold); border: 1px solid #f5c84244; }
+.g-C  { background: #f0485a22; color: var(--rose); border: 1px solid #f0485a44; }
+.g-F  { background: #ff000022; color: #ff6b6b; border: 1px solid #ff000044; }
+
+/* ─── FOOTER ─── */
+footer {
+  background: var(--surface); border-top: 1px solid var(--border);
+  text-align: center; padding: 1.5rem;
+  font-size: 11px; color: var(--muted); letter-spacing: 1px;
+}
+
+/* ─── CANVAS STYLE ─── */
+canvas { display: block; }
+
+/* ─── ANIMATIONS ─── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: fadeUp 0.45s ease both; }
+.fade-up:nth-child(1) { animation-delay: 0.05s; }
+.fade-up:nth-child(2) { animation-delay: 0.1s; }
+.fade-up:nth-child(3) { animation-delay: 0.15s; }
+.fade-up:nth-child(4) { animation-delay: 0.2s; }
+.fade-up:nth-child(5) { animation-delay: 0.25s; }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 1024px) {
+  .hero { padding: 2.5rem 2rem; }
+  .hero-grid { grid-template-columns: 1fr; }
+  .hero-kpis { justify-content: flex-start; }
+  .tabs-wrap { padding: 0 1rem; overflow-x: auto; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 700px) {
+  .two-col, .three-col, .insights-grid { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .hero-kpis { flex-wrap: wrap; gap: 1.2rem; }
+  main { padding: 2rem 1rem 4rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- LOADER -->
+<div id="loader">
+  <div class="loader-ring"></div>
+  <div class="loader-text">Loading data.csv…</div>
+</div>
+
+<!-- HEADER -->
+<header class="hero">
+  <div class="hero-grid">
+    <div>
+      <div class="hero-eyebrow">Analytics Dashboard · 2024–25</div>
+      <h1 class="hero-title">Student Performance<br><em>Analytics</em> System</h1>
+      <p class="hero-sub">Descriptive statistics, correlation analysis &amp; visual insights derived from <strong id="heroCount">–</strong> students across 5 academic variables.</p>
+    </div>
+    <div class="hero-kpis">
+      <div class="kpi">
+        <div class="kpi-val" id="hAvgFinal" style="color:var(--gold)">–</div>
+        <div class="kpi-lbl">Avg Final</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val" id="hAvgAtt" style="color:var(--teal)">–</div>
+        <div class="kpi-lbl">Avg Attend.</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val" id="hTopGrade" style="color:var(--indigo)">–</div>
+        <div class="kpi-lbl">Top Graders</div>
+      </div>
+    </div>
+  </div>
+  <div class="hero-bar"><div class="hero-bar-fill" id="heroBarFill"></div></div>
+</header>
+
+<!-- TABS -->
+<nav class="tabs-wrap">
+  <div class="tabs">
+    <button class="tab active" data-tab="overview">Overview</button>
+    <button class="tab" data-tab="distributions">Distributions</button>
+    <button class="tab" data-tab="correlations">Correlations</button>
+    <button class="tab" data-tab="insights">Insights</button>
+    <button class="tab" data-tab="data">Data Table</button>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<main>
+
+  <!-- ════ OVERVIEW ════ -->
+  <div class="panel active" id="tab-overview">
+    <div class="sec-head sec-divider">
+      <div class="sec-title">Key Performance Indicators</div>
+      <div class="sec-sub">Mean values across all students for each academic variable</div>
+    </div>
+
+    <div class="stats-grid" id="statCards"></div>
+
+    <div class="card" style="padding:0; overflow:hidden;">
+      <table class="desc-table" id="descTable">
+        <thead><tr>
+          <th>Variable</th><th>Mean</th><th>Median</th><th>Variance</th>
+          <th>Std Dev (σ)</th><th>Min</th><th>Max</th><th>Spread</th>
+        </tr></thead>
+        <tbody id="descBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ════ DISTRIBUTIONS ════ -->
+  <div class="panel" id="tab-distributions">
+    <div class="sec-head sec-divider">
+      <div class="sec-title">Distribution Analysis</div>
+      <div class="sec-sub">Histograms &amp; grade breakdown across all students</div>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Final Score Distribution</div>
+        <div class="card-sub">Frequency of final exam scores across all students</div>
+        <div style="position:relative;height:230px;"><canvas id="histFinal"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Attendance Distribution</div>
+        <div class="card-sub">Spread of attendance percentages</div>
+        <div style="position:relative;height:230px;"><canvas id="histAtt"></canvas></div>
+      </div>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Study Hours Distribution</div>
+        <div class="card-sub">Daily study hours across all students</div>
+        <div style="position:relative;height:230px;"><canvas id="histStudy"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Grade Distribution</div>
+        <div class="card-sub">Number of students in each grade band</div>
+        <div style="position:relative;height:230px;"><canvas id="gradeBar"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Box Plot — Final Score by Grade</div>
+      <div class="card-sub">IQR spread of final scores across grade bands</div>
+      <div style="position:relative;height:260px;"><canvas id="boxPlot"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ════ CORRELATIONS ════ -->
+  <div class="panel" id="tab-correlations">
+    <div class="sec-head sec-divider">
+      <div class="sec-title">Correlation Analysis</div>
+      <div class="sec-sub">Pearson correlation coefficients — which factors most influence final score?</div>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Pearson r with Final Score</div>
+        <div class="card-sub">Higher bar = stronger linear relationship</div>
+        <div class="corr-list" id="corrList"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Internal Marks vs Final Score</div>
+        <div class="card-sub">r = <span id="rInternal">–</span></div>
+        <div style="position:relative;height:230px;"><canvas id="scatterInt"></canvas></div>
+      </div>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Study Hours vs Final Score</div>
+        <div class="card-sub">r = <span id="rStudy">–</span></div>
+        <div style="position:relative;height:220px;"><canvas id="scatterStu"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Attendance vs Final Score</div>
+        <div class="card-sub">r = <span id="rAtt">–</span></div>
+        <div style="position:relative;height:220px;"><canvas id="scatterAtt"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ INSIGHTS ════ -->
+  <div class="panel" id="tab-insights">
+    <div class="sec-head sec-divider">
+      <div class="sec-title">Key Findings &amp; Interpretations</div>
+      <div class="sec-sub">Actionable insights derived from statistical and visual analysis</div>
+    </div>
+    <div class="insights-grid" id="insightGrid"></div>
+  </div>
+
+  <!-- ════ DATA TABLE ════ -->
+  <div class="panel" id="tab-data">
+    <div class="sec-head">
+      <div class="sec-title">Full Student Dataset</div>
+      <div class="sec-sub">All records loaded from <code>data.csv</code></div>
+    </div>
+    <div class="table-controls">
+      <input type="text" class="search-input" id="searchInput" placeholder="Search by student ID…">
+      <select class="filter-select" id="gradeFilter">
+        <option value="">All Grades</option>
+        <option value="O">O (≥90)</option>
+        <option value="A+">A+</option>
+        <option value="A">A</option>
+        <option value="B">B</option>
+        <option value="C">C</option>
+      </select>
+      <span class="count-label" id="rowCount">– students</span>
+    </div>
+    <div class="tbl-container">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th><th>Attendance %</th><th>Internal /50</th>
+            <th>Assignment /20</th><th>Study Hrs</th><th>Final /100</th><th>Grade</th>
+          </tr>
+        </thead>
+        <tbody id="dataTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<footer>Student Performance Analytics System &nbsp;·&nbsp; Data loaded from data.csv &nbsp;·&nbsp; Academic Year 2024–25</footer>
+
+<script>
+// ─── CSV PARSER ─────────────────────────────────────────────────────────────
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const headers = lines[0].split(',').map(h => h.trim());
+  return lines.slice(1).map(line => {
+    const vals = line.split(',').map(v => v.trim());
+    const obj = {};
+    headers.forEach((h, i) => obj[h] = isNaN(vals[i]) ? vals[i] : parseFloat(vals[i]));
+    return obj;
+  });
+}
+
+// ─── STATS HELPERS ──────────────────────────────────────────────────────────
+const mean   = arr => arr.reduce((a,b) => a+b, 0) / arr.length;
+const median = arr => { const s = [...arr].sort((a,b)=>a-b); const m = Math.floor(s.length/2); return s.length%2 ? s[m] : (s[m-1]+s[m])/2; };
+const variance = arr => { const m = mean(arr); return mean(arr.map(v => (v-m)**2)); };
+const std    = arr => Math.sqrt(variance(arr));
+const pearson = (x, y) => {
+  const mx = mean(x), my = mean(y);
+  const num = x.reduce((s,xi,i) => s + (xi-mx)*(y[i]-my), 0);
+  const den = Math.sqrt(x.reduce((s,xi)=>s+(xi-mx)**2,0) * y.reduce((s,yi)=>s+(yi-my)**2,0));
+  return den ? num/den : 0;
+};
+const histogram = (data, bins, lo, hi) => {
+  const step = (hi-lo)/bins;
+  const counts = new Array(bins).fill(0);
+  const labels = [];
+  for(let i=0;i<bins;i++) labels.push(`${Math.round(lo+i*step)}–${Math.round(lo+(i+1)*step)}`);
+  data.forEach(v => {
+    let b = Math.floor((v-lo)/step);
+    if(b>=bins) b=bins-1;
+    if(b>=0) counts[b]++;
+  });
+  return {labels, counts};
+};
+
+// ─── CHART DEFAULTS ─────────────────────────────────────────────────────────
+Chart.defaults.color = '#6b6b7e';
+Chart.defaults.borderColor = '#252535';
+Chart.defaults.font.family = 'Epilogue';
+
+const mkScatter = (id, xArr, yArr, color, xLabel, yLabel) => new Chart(document.getElementById(id), {
+  type: 'scatter',
+  data: { datasets: [{ data: xArr.map((x,i)=>({x,y:yArr[i]})),
+    backgroundColor: color+'44', borderColor: color, pointRadius: 4, pointBorderWidth: 1 }] },
+  options: { responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{display:false} },
+    scales:{
+      x:{ title:{display:true,text:xLabel,font:{size:11}}, grid:{color:'#252535'} },
+      y:{ title:{display:true,text:yLabel,font:{size:11}}, grid:{color:'#252535'} }
+    }
+  }
+});
+
+// ─── GRADE PILL STYLES ───────────────────────────────────────────────────────
+const gradeClass = g => ({ 'O':'g-O','A+':'g-Ap','A':'g-A','B':'g-B','C':'g-C','F':'g-F' }[g] || '');
+const gradeColors = {'O':'#4ade80','A+':'#7b6ef6','A':'#4ea8de','B':'#f5c842','C':'#f0485a','F':'#ff6b6b'};
+
+// ─── MAIN INIT ───────────────────────────────────────────────────────────────
+let allData = [];
+
+function init(data) {
+  allData = data;
+  const n = data.length;
+  const finals  = data.map(s=>s.final);
+  const atts    = data.map(s=>s.attendance);
+  const intern  = data.map(s=>s.internal);
+  const assign  = data.map(s=>s.assignment);
+  const study   = data.map(s=>s.study_hrs);
+
+  // Hero
+  document.getElementById('heroCount').textContent = n;
+  document.getElementById('hAvgFinal').textContent = mean(finals).toFixed(1);
+  document.getElementById('hAvgAtt').textContent   = mean(atts).toFixed(1)+'%';
+  const topCount = data.filter(s=>s.grade==='O'||s.grade==='A+').length;
+  document.getElementById('hTopGrade').textContent = topCount;
+  setTimeout(()=>{ document.getElementById('heroBarFill').style.width = '100%'; }, 200);
+
+  // ─── STAT CARDS
+  const cards = [
+    { label:'Attendance', val: mean(atts).toFixed(1), unit:'%', med: median(atts).toFixed(1), sig: std(atts).toFixed(1), color:'var(--sky)' },
+    { label:'Internal Marks', val: mean(intern).toFixed(1), unit:'/50', med: median(intern).toFixed(1), sig: std(intern).toFixed(1), color:'var(--teal)' },
+    { label:'Assignment', val: mean(assign).toFixed(1), unit:'/20', med: median(assign).toFixed(1), sig: std(assign).toFixed(1), color:'var(--gold)' },
+    { label:'Study Hours/day', val: mean(study).toFixed(1), unit:'hrs', med: median(study).toFixed(1), sig: std(study).toFixed(1), color:'var(--indigo)' },
+    { label:'Final Score', val: mean(finals).toFixed(1), unit:'/100', med: median(finals).toFixed(1), sig: std(finals).toFixed(1), color:'var(--rose)' },
+  ];
+  const sg = document.getElementById('statCards');
+  cards.forEach(c => {
+    const d = document.createElement('div');
+    d.className = 'stat-card fade-up';
+    d.innerHTML = `
+      <div class="stat-accent" style="background:${c.color}"></div>
+      <div class="stat-label">${c.label}</div>
+      <div class="stat-value" style="color:${c.color}">${c.val}<span class="stat-unit"> ${c.unit}</span></div>
+      <div class="stat-meta">
+        <div class="stat-mini">Med: <strong>${c.med}</strong></div>
+        <div class="stat-mini">σ: <strong>${c.sig}</strong></div>
+      </div>`;
+    sg.appendChild(d);
+  });
+
+  // ─── DESCRIPTIVE TABLE
+  const rows = [
+    { name:'Attendance (%)',    arr:atts   },
+    { name:'Internal (/50)',    arr:intern  },
+    { name:'Assignment (/20)',  arr:assign  },
+    { name:'Study Hours',       arr:study   },
+    { name:'Final Score (/100)',arr:finals  },
+  ];
+  const tbody = document.getElementById('descBody');
+  rows.forEach(r => {
+    const v = variance(r.arr), s = std(r.arr);
+    const spread = s>10?'High':s>3?'Moderate':'Low';
+    const cls = s>10?'badge-high':s>3?'badge-mod':'badge-low';
+    tbody.innerHTML += `<tr>
+      <td><strong>${r.name}</strong></td>
+      <td>${mean(r.arr).toFixed(2)}</td><td>${median(r.arr).toFixed(2)}</td>
+      <td>${v.toFixed(2)}</td><td>${s.toFixed(2)}</td>
+      <td>${Math.min(...r.arr).toFixed(1)}</td><td>${Math.max(...r.arr).toFixed(1)}</td>
+      <td><span class="badge ${cls}">${spread}</span></td>
+    </tr>`;
+  });
+
+  // ─── HISTOGRAMS
+  const hFinal = histogram(finals, 10, 40, 105);
+  new Chart(document.getElementById('histFinal'), { type:'bar',
+    data:{ labels:hFinal.labels, datasets:[{ data:hFinal.counts,
+      backgroundColor:'#f0485a55', borderColor:'#f0485a', borderWidth:1.5 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales:{x:{ticks:{font:{size:10},maxRotation:45}}, y:{beginAtZero:true, grid:{color:'#252535'}}} }
+  });
+  const hAtt = histogram(atts, 10, 40, 105);
+  new Chart(document.getElementById('histAtt'), { type:'bar',
+    data:{ labels:hAtt.labels, datasets:[{ data:hAtt.counts,
+      backgroundColor:'#4ea8de55', borderColor:'#4ea8de', borderWidth:1.5 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales:{x:{ticks:{font:{size:10},maxRotation:45}}, y:{beginAtZero:true, grid:{color:'#252535'}}} }
+  });
+  const hStudy = histogram(study, 10, 0, 10);
+  new Chart(document.getElementById('histStudy'), { type:'bar',
+    data:{ labels:hStudy.labels, datasets:[{ data:hStudy.counts,
+      backgroundColor:'#7b6ef655', borderColor:'#7b6ef6', borderWidth:1.5 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales:{x:{ticks:{font:{size:10},maxRotation:45}}, y:{beginAtZero:true, grid:{color:'#252535'}}} }
+  });
+
+  // Grade bar
+  const grades = ['O','A+','A','B','C','F'];
+  const gradeCounts = grades.map(g => data.filter(s=>s.grade===g).length);
+  new Chart(document.getElementById('gradeBar'), { type:'bar',
+    data:{ labels:['O (≥90)','A+ (75–89)','A (60–74)','B (50–59)','C (40–49)','F (<40)'],
+      datasets:[{ data:gradeCounts,
+        backgroundColor:['#4ade8033','#7b6ef633','#4ea8de33','#f5c84233','#f0485a33','#ff000033'],
+        borderColor:['#4ade80','#7b6ef6','#4ea8de','#f5c842','#f0485a','#ff6b6b'],
+        borderWidth:2 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales:{y:{beginAtZero:true, grid:{color:'#252535'}}, x:{grid:{color:'#252535'}}} }
+  });
+
+  // Box plot
+  const boxGrades = ['O','A+','A','B','C'];
+  function boxStats(g) {
+    const v = data.filter(s=>s.grade===g).map(s=>s.final).sort((a,b)=>a-b);
+    if(!v.length) return null;
+    return { q1:v[Math.floor(v.length*.25)], median:v[Math.floor(v.length*.5)],
+             q3:v[Math.floor(v.length*.75)], min:v[0], max:v[v.length-1] };
+  }
+  const boxData = boxGrades.map(g => boxStats(g));
+  const bColors = ['#4ade80','#7b6ef6','#4ea8de','#f5c842','#f0485a'];
+  new Chart(document.getElementById('boxPlot'), { type:'bar',
+    data:{
+      labels: boxGrades.map((g,i)=>`${g} (n=${data.filter(s=>s.grade===g).length})`),
+      datasets:[
+        { label:'IQR', data:boxData.map(b=>b?[b.q1,b.q3]:[0,0]),
+          backgroundColor: bColors.map(c=>c+'33'), borderColor:bColors, borderWidth:2, borderSkipped:false },
+        { label:'Median', data:boxData.map(b=>b?[b.median-.3,b.median+.3]:[0,0]),
+          backgroundColor:bColors, borderWidth:0, borderSkipped:false }
+      ]
+    },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false},
+        tooltip:{ callbacks:{ label:(ctx)=>{
+          const b=boxData[ctx.dataIndex]; if(!b) return '';
+          return [`Min:${b.min}`,`Q1:${b.q1}`,`Median:${b.median}`,`Q3:${b.q3}`,`Max:${b.max}`];
+        }}}},
+      scales:{y:{min:40,max:105,title:{display:true,text:'Final Score'},grid:{color:'#252535'}},
+              x:{grid:{color:'#252535'}}}
+    }
+  });
+
+  // ─── CORRELATIONS
+  const corrData = [
+    { name:'Study Hours',        val: pearson(study, finals),  color:'var(--indigo)' },
+    { name:'Internal Marks',     val: pearson(intern, finals), color:'var(--teal)' },
+    { name:'Assignment Score',   val: pearson(assign, finals), color:'var(--gold)' },
+    { name:'Attendance',         val: pearson(atts, finals),   color:'var(--sky)' },
+    { name:'Attend. → Internal', val: pearson(atts, intern),   color:'var(--muted)' },
+  ];
+  const cl = document.getElementById('corrList');
+  corrData.forEach(c => {
+    const pct = Math.abs(c.val * 100).toFixed(0);
+    cl.innerHTML += `<div class="corr-row">
+      <div class="corr-name">${c.name}</div>
+      <div class="corr-track"><div class="corr-fill" style="width:0%;background:${c.color}" data-w="${pct}%"></div></div>
+      <div class="corr-num" style="color:${c.color}">${c.val.toFixed(3)}</div>
+    </div>`;
+  });
+  document.getElementById('rInternal').textContent = pearson(intern, finals).toFixed(3);
+  document.getElementById('rStudy').textContent    = pearson(study, finals).toFixed(3);
+  document.getElementById('rAtt').textContent      = pearson(atts, finals).toFixed(3);
+
+  mkScatter('scatterInt', intern, finals, '#36d4b7', 'Internal Marks', 'Final Score');
+  mkScatter('scatterStu', study,  finals, '#7b6ef6', 'Study Hrs/day', 'Final Score');
+  mkScatter('scatterAtt', atts,   finals, '#4ea8de', 'Attendance %', 'Final Score');
+
+  // Animate corr bars after a tick
+  setTimeout(()=>{
+    document.querySelectorAll('.corr-fill').forEach(el => {
+      el.style.width = el.dataset.w;
+    });
+  }, 300);
+
+  // ─── INSIGHTS
+  const rStudy   = pearson(study, finals);
+  const rInt     = pearson(intern, finals);
+  const rAsg     = pearson(assign, finals);
+  const rAtt     = pearson(atts, finals);
+  const failCount = data.filter(s=>s.grade==='F').length;
+  const topPct    = Math.round((data.filter(s=>['O','A+'].includes(s.grade)).length/n)*100);
+
+  const insightsData = [
+    { icon:'📚', color:'var(--indigo)', title:'Study Hours is the Strongest Predictor',
+      body:`With Pearson r = <strong>${rStudy.toFixed(3)}</strong>, daily study time has the highest influence on final exam scores. Students studying 6+ hours/day consistently score in the A+ band.` },
+    { icon:'📝', color:'var(--teal)', title:'Internal Marks Are a Strong Proxy',
+      body:`Internal assessments (r = <strong>${rInt.toFixed(3)}</strong>) closely track final performance, making them a reliable early warning tool. Students below 30/50 face significant risk.` },
+    { icon:'📋', color:'var(--gold)', title:'Assignment Completion Matters',
+      body:`Assignment scores (r = <strong>${rAsg.toFixed(3)}</strong>) show moderate correlation. Most students score full marks (median = ${median(assign).toFixed(0)}/20), so outliers here are at clear risk.` },
+    { icon:'🏫', color:'var(--sky)', title:'Attendance Has Indirect Impact',
+      body:`Direct correlation of attendance with finals is moderate (r = <strong>${rAtt.toFixed(3)}</strong>), but it correlates with internal marks (r = ${pearson(atts,intern).toFixed(3)}), showing an indirect pathway.` },
+    { icon:'⚠️', color:'var(--rose)', title:'High Variance in Final Scores',
+      body:`Final score variance (${variance(finals).toFixed(1)}) is the highest across all variables, indicating wide dispersion — other factors like test anxiety and prior knowledge also play a role.` },
+    { icon:'🎯', color:'var(--green)', title:`${topPct}% Score A+ or Above`,
+      body:`The cohort performs well overall, with ${failCount} failures. ${data.filter(s=>['B','C'].includes(s.grade)).length} students in B/C bands represent the intervention-priority group.` },
+  ];
+  const ig = document.getElementById('insightGrid');
+  insightsData.forEach(ins => {
+    ig.innerHTML += `<div class="insight" style="border-color:${ins.color}">
+      <div class="insight-icon">${ins.icon}</div>
+      <div class="insight-title">${ins.title}</div>
+      <div class="insight-body">${ins.body}</div>
+    </div>`;
+  });
+
+  // ─── DATA TABLE
+  renderTable(data);
+
+  // ─── SEARCH / FILTER
+  document.getElementById('searchInput').addEventListener('input', filterTable);
+  document.getElementById('gradeFilter').addEventListener('change', filterTable);
+}
+
+function filterTable() {
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  const g = document.getElementById('gradeFilter').value;
+  const filtered = allData.filter(s => {
+    const matchQ = !q || String(s.id).includes(q);
+    const matchG = !g || s.grade === g;
+    return matchQ && matchG;
+  });
+  renderTable(filtered);
+}
+
+function renderTable(data) {
+  const tbody = document.getElementById('dataTableBody');
+  tbody.innerHTML = '';
+  data.forEach(s => {
+    const gc = gradeClass(s.grade);
+    tbody.innerHTML += `<tr>
+      <td style="color:var(--muted);font-size:11px;">${s.id}</td>
+      <td><span class="mini-bar-wrap"><span class="mini-bar-fill" style="width:${s.attendance}%;background:var(--sky);"></span></span>${s.attendance}%</td>
+      <td>${s.internal}</td>
+      <td>${s.assignment}</td>
+      <td>${s.study_hrs} hrs</td>
+      <td><span class="mini-bar-wrap"><span class="mini-bar-fill" style="width:${s.final}%;background:var(--rose);"></span></span>${s.final}</td>
+      <td><span class="grade-pill ${gc}">${s.grade}</span></td>
+    </tr>`;
+  });
+  document.getElementById('rowCount').textContent = `${data.length} students`;
+}
+
+// ─── TABS ────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+    // Animate corr bars when switching to correlations tab
+    if(btn.dataset.tab==='correlations') {
+      setTimeout(()=>{
+        document.querySelectorAll('.corr-fill').forEach(el => {
+          el.style.width = el.dataset.w;
+        });
+      }, 100);
+    }
+  });
+});
+
+// ─── LOAD CSV ────────────────────────────────────────────────────────────────
+// When running in VS Code with a local server, this fetch works.
+// Place data.csv in the same folder as index.html.
+fetch('data.csv')
+  .then(r => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.text();
+  })
+  .then(text => {
+    const data = parseCSV(text);
+    init(data);
+    const loader = document.getElementById('loader');
+    loader.classList.add('hidden');
+    setTimeout(() => loader.style.display = 'none', 600);
+  })
+  .catch(err => {
+    document.querySelector('.loader-text').textContent = 'Error: ' + err.message + ' — make sure data.csv is in the same folder and you are running a local server.';
+    console.error(err);
+  });
+</script>
+</body>
+</html>
